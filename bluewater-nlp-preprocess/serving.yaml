@@ -1,0 +1,20 @@
+kind: Model
+name: bluewater-nlp-preprocess
+model-type: python:3.6
+payload:
+  - "src/"
+  - "requirements.txt"
+  - "ru-rnc.map"
+
+contract:
+  infer:
+    inputs:
+      msg:
+        shape: [1]
+        type: string
+        profile: text
+    outputs:
+      preprocessed_msg:
+        shape: [-1]
+        type: string
+        profile: text

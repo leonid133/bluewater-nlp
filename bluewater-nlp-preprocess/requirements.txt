@@ -1,0 +1,2 @@
+pymystem3
+numpy~=1.14.0
