@@ -5,6 +5,7 @@ from .api import *
 from functools import partial
 import numpy as np
 
+
 def _batch_matmul(batch, weights):
     input_ndims = batch.get_shape().ndims
     if input_ndims == 2:
@@ -40,17 +41,17 @@ def model_fn(features, labels, mode, params):
     vocab_fp = params['vocab_filepath']
     word_emb_len = get_lines(vocab_fp)
     oov_word_i = word_emb_len - 1
-    word_i_lookup = tf.contrib.lookup.index_table_from_file(vocab_fp, 
+    word_i_lookup = tf.contrib.lookup.index_table_from_file(vocab_fp,
                                                             default_value=oov_word_i,
                                                             name='word_i_lookup_table')
     #
     word_indices = word_i_lookup.lookup(tokens, name='word_indices')
     #
-    emb_params = tf.get_variable('word_embeddings', 
+    emb_params = tf.get_variable('word_embeddings',
                                  shape=(word_emb_len, params['pretrained.dim']),
                                  dtype=params['pretrained.dtype'])
     word_vecs = tf.nn.embedding_lookup(emb_params, word_indices)
-      
+
     # ENCODER LSTM RNN
     encoder_rnn_cell = tf.nn.rnn_cell.BasicLSTMCell(params['encoder.hidden_size'])
     _, encoder_state_tuple = tf.nn.dynamic_rnn(encoder_rnn_cell, word_vecs, token_lengths,
@@ -61,34 +62,34 @@ def model_fn(features, labels, mode, params):
     logits, out_W, out_b = linear(encoder_state, NUM_INTENTS, "label_logits")
     # probabilies, shape (batch, max_time, label_num)
     intent_proba = tf.nn.softmax(logits, name='intent_proba')
-    intent_confidence = tf.reduce_max(intent_proba, axis=-1)
     predicted_intent_i = tf.argmax(logits, -1, name='predicted_intent_i')
+    intent_labels = tf.constant(INTENT_LABELS, dtype=tf.string, name='intent_labels')
     label_lookup = tf.contrib.lookup.index_to_string_table_from_tensor(
-        INTENT_LABELS, 
+        intent_labels,
         default_value=INTENT_LABELS[-1],
         name='label_lookup_table')
     predicted_intent = label_lookup.lookup(predicted_intent_i, name='predicted_intent')
-    
+
     if mode == tf.estimator.ModeKeys.PREDICT:
         return tf.estimator.EstimatorSpec(mode, predictions={
-            'intent_i' : predicted_intent_i,
-            'confidence' : intent_confidence,
-            'input_length' : token_lengths,
-            'intent' : predicted_intent
+            'input_length': token_lengths,
+            # note it's constant
+            'intents': intent_labels,
+            'confidences': intent_proba
         })
-    
-    label_reverse_lookup = tf.contrib.lookup.index_table_from_tensor(INTENT_LABELS, 
+
+    label_reverse_lookup = tf.contrib.lookup.index_table_from_tensor(intent_labels,
                                                                      name='label_reverse_lookup_table')
     true_intent_i = label_reverse_lookup.lookup(labels, 'true_intent_i')
     with tf.control_dependencies([tf.assert_equal(true_intent_i < 0, False)]):
         batch_loss = tf.losses.sparse_softmax_cross_entropy(true_intent_i, logits)
     # metrics
     eval_op_dict = {
-        'accuracy' : tf.metrics.accuracy(labels=labels, predictions=predicted_intent)
+        'accuracy': tf.metrics.accuracy(labels=labels, predictions=predicted_intent)
     }
     if mode == tf.estimator.ModeKeys.TRAIN:
         l2_lambda = params['l2_lambda']
-        
+
         if l2_lambda > 0:
             l2_loss = tf.add(tf.nn.l2_loss(out_W, 'out_W_L2'), tf.nn.l2_loss(out_b, 'out_b_L2'), 'l2_loss')
             batch_loss += tf.multiply(l2_lambda, l2_loss, name='regularized_loss')
@@ -112,7 +113,7 @@ def model_fn(features, labels, mode, params):
         )
     else:
         raise NotImplementedError('Unknown mode %s' % mode)
-        
+
 
 def _init_fn(sc, sess, params):
     with tf.variable_scope('', reuse=True):
