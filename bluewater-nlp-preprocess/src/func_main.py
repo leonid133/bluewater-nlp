@@ -23,7 +23,7 @@ def infer(msg):
     y = hs.TensorProto(
         dtype=hs.DT_STRING,
         string_val=[t.encode('utf-8', 'ignore') for t in tokens],
-        tensor_shape=hs.TensorShapeProto(dim=[hs.TensorShapeProto.Dim(size=-1)]))
+        tensor_shape=hs.TensorShapeProto(dim=[hs.TensorShapeProto.Dim(size=len(tokens))]))
 
     # 3. Return the result
     return hs.PredictResponse(outputs={"preprocessed_msg": y})

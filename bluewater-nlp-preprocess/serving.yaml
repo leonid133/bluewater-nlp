@@ -1,6 +1,7 @@
 kind: Model
 name: bluewater-nlp-preprocess
-model-type: python:3.6
+runtime: hydrosphere/serving-runtime-python:3.6-latest
+install-command: "pip install -r requirements.txt"
 payload:
   - "src/"
   - "requirements.txt"
@@ -10,7 +11,7 @@ contract:
   infer:
     inputs:
       msg:
-        shape: [1]
+        shape: scalar
         type: string
         profile: text
     outputs:
